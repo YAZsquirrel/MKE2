@@ -43,7 +43,13 @@
     <Text Include="Result.txt">
       <Filter>Файлы ресурсов</Filter>
     </Text>
-    <Text Include="Grid.txt">
+    <Text Include="matrix.txt">
+      <Filter>Файлы ресурсов</Filter>
+    </Text>
+    <Text Include="Point.txt">
+      <Filter>Файлы ресурсов</Filter>
+    </Text>
+    <Text Include="ResAB.txt">
       <Filter>Файлы ресурсов</Filter>
     </Text>
   </ItemGroup>

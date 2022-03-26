@@ -1,12 +1,14 @@
-#include "Fem.h"
+#include "EMproblem.h"
 #include "locale.h"
 int main()
 {
 	setlocale(LC_ALL,"RU");
-	FEM *fem = new FEM();
-	fem->SolveLinear();
-	std::ofstream out("Result.txt");
-	fem->Output(out);
+
+	EMproblem* emp = new EMproblem();
+	emp->Start();
+	std::ofstream out("ResAB.txt");
+	emp->Output(out);
+
 
 	return 0;
 }

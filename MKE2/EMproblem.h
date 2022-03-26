@@ -4,15 +4,18 @@
 #include <functional>
 //using namespace FEM_ns;
 
+
 class EMproblem
 {
 	public:
-	FEM *fem = new FEM();
+	EMproblem();
+	FEM *fem;
 
 	real* q;
-	real* GetBInPoint(Knot point, FE* fe, real* q);
-	real GetAInPoint(Knot point, FE* fe, real* q);
-
+	real GetB2(Knot point);
+	real GetA(Knot point);
+	void Start();
+	void Output(std::ofstream& out);
 	private: 
 	std::function<real(int i, real x, real x1, real x2)> X = [](int i, real x, real x1, real x2)
 	{

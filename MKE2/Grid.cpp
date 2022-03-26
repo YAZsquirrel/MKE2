@@ -79,8 +79,8 @@ int Grid::ReadCoordinates(string pathFileCoords)
 	for (int i = 0; i < countKnots; i++)
 	{
 		Knot* knot = knots[i] = new Knot;
-		r = fread(knot, sizeof(*knot), 1, binInCoords); if (r < 1) break;  
-		nReadGood += r * sizeof(*knot) / sizeof(double);
+		r = fread(knot, sizeof(double) * 2, 1, binInCoords); if (r < 1) break;  
+		nReadGood += r * sizeof(double) * 2 / sizeof(double);
 	}
 
 	fclose(binInCoords);
@@ -135,13 +135,13 @@ int Grid::ReadMaterials(string pathFileJ, string pathFileMu)
 	if (inJ.is_open() || inMu.is_open())
 	{
 		long NumMaterial = 1;
-		while (!inJ.eof() || !inMu.eof())
+		for (int i = 0; i < 4; i++)
 		{
 			inJ >> NumMaterial;
 			inJ >> materials[NumMaterial - 1].j;
 			inMu >> NumMaterial;
 			inMu >> materials[NumMaterial-1].mu;
-			materials[NumMaterial - 1].mu *= 4.0 * PI * 10e-7;
+			materials[NumMaterial - 1].mu *= 4.0 * PI * 1e-7;
 		}
 	}
 	else

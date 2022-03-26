@@ -150,7 +150,9 @@
     <ClInclude Include="Grid.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Grid.txt" />
+    <Text Include="matrix.txt" />
+    <Text Include="Point.txt" />
+    <Text Include="ResAB.txt" />
     <Text Include="Result.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

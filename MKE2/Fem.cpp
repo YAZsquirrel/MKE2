@@ -1,5 +1,5 @@
 ﻿#include "Fem.h"
-
+#define Kholessky
 FEM::FEM()
 {
    grid = new Grid();
@@ -24,7 +24,8 @@ void FEM::MakeSparseFormat()
    list1 = new int[num_of_knots * num_of_knots]{};
    list2 = new int[num_of_knots * num_of_knots]{};
 
-   int listsize = -1, iaddr, ind1, ind2, k;
+   listsize = -1;
+   int iaddr, ind1, ind2, k;
 
    for (int iel = 0; iel < num_of_FE; iel++) // ï
    {
@@ -92,11 +93,16 @@ void FEM::MakeSparseFormat()
    delete[] list1;
    delete[] list2;
 
-
    A->l = new real[listsize + 1]{};
    A->u = new real[listsize + 1]{};
    A->d = new real[num_of_knots]{};
 
+   M = new Matrix();
+   M->ig = A->ig;
+   M->jg = A->jg;
+   M->l = new real[listsize + 1]{};
+   M->u = new real[listsize + 1]{};
+   M->d = new real[num_of_knots]{};
 }
 
 void FEM::AddLocal(Matrix* A, long knot_num[4], real localA[4][4], real coeff)
@@ -136,7 +142,7 @@ void FEM::SolveLinear()
 {
    CreateSLAE();
    SolveSLAE();
-
+   WriteMatrix(M);
 }
 
 void FEM::Output(std::ofstream& out)
@@ -178,7 +184,7 @@ void FEM::AddFirstBounds()
 {
    for (auto cond : grid->bounds)
    {
-      real C = 1e10; /// очень большое число
+      real C = 1e20; /// очень большое число
       A->d[cond->knot_num] = C;
       for (int j = A->ig[cond->knot_num]; j < A->ig[cond->knot_num + 1]; j++)
          A->l[j] = 0.;
@@ -202,8 +208,8 @@ void FEM::CreateSLAE()
       AddToB(fe);
    }
 
-   for (int i = 0; i < num_of_knots; i++)
-      std::cout << b[i] << '\n';
+   //for (int i = 0; i < num_of_knots; i++)
+   //   std::cout << b[i] << '\n';
    //AddSecondBounds();
    AddFirstBounds();
 }
@@ -219,10 +225,6 @@ void FEM::CreateLocalG(FE* fe, real localG[4][4])
    localG[0][1] = localG[1][0] = localG[2][3] = localG[3][2] = -lambda * (hy / hx - hx / hy / 2.) / 3.;
    localG[0][2] = localG[2][0] = localG[1][3] = localG[3][1] = lambda * (hy / hx / 2. - hx / hy) / 3.;
    localG[0][3] = localG[3][0] = localG[1][2] = localG[2][1] = -lambda * (hy / hx + hx / hy) / 6.;
-   //localG[0][0] = localG[1][1] = localG[2][2] = localG[3][3] =  (hy / hx + hx / hy) / 3. / mu;
-   //localG[0][1] = localG[1][0] = localG[2][3] = localG[3][2] = -(hy / hx - hx / hy / 2.) / 3. / mu;
-   //localG[0][2] = localG[2][0] = localG[1][3] = localG[3][1] =  (hy / hx / 2. - hx / hy) / 3. / mu;
-   //localG[0][3] = localG[3][0] = localG[1][2] = localG[2][1] = -(hy / hx + hx / hy) / 6. / mu;
 }
 
 void FEM::AddToB(FE* fe)
@@ -268,16 +270,19 @@ void FEM::MatxVec(real* v, Matrix* A, real* b)
 
 void FEM::SolveSLAE()
 {
-   real* z, * r, * p, * ff, * x;
+   real* z, * r, * p, * ff, *fff, * x;
    ff = new real[num_of_knots]{};
+   fff = new real[num_of_knots]{};
    z = new real[num_of_knots]{};
    r = new real[num_of_knots]{};
    p = new real[num_of_knots]{};
-   real res, alpha, beta, skp, eps = 1e-17;
+   real res = 1, alpha, beta, skp, eps = 1e-17;
    int i, k;
    x = q;
 
    real lastres;
+#ifndef Kholessky 
+
    MatxVec(ff, A, x);
    for (i = 0; i < num_of_knots; i++)
       z[i] = r[i] = b[i] - ff[i];
@@ -303,5 +308,160 @@ void FEM::SolveSLAE()
       }
       res = sqrt(scalar(r, r, num_of_knots)) / sqrt(scalar(b, b, num_of_knots));
    }
+#else // 
+
+   CreateKholessky();
+   
+   MatxVec(ff, A, x);                              // ff = Ax
+   real b_norm, r_norm;
+   for (int i = 0; i < num_of_knots; i++)          // r0 = b - Ax   
+      r[i] = b[i] - ff[i];
+
+   solve_LLT(r, z);                                // z0 = M1*r0   
+
+   b_norm = sqrt(scalar(b, b, num_of_knots));
+
+   real scal1;// = scalar(p, r, num_of_knots); 
+   real scal2 = 0.0;
+   bool end = false;
+
+   for (k = 1; k < 100000 && res > eps; k++)
+   {
+      lastres = res;
+
+      solve_LLT(r, ff);                            // ff = M1 * rk1
+      scal1 = scalar(ff, r, num_of_knots);         // (M1 * rk1, rk1)
+      MatxVec(ff, A, z);                           // ff = Azk1
+      scal2 = scalar(ff, z, num_of_knots);         // (Azk1, zk1)
+      alpha = scal1 / scal2;                       // a = (M1 * rk1, rk1) / (Azk1, zk1)
+
+      for (int i = 0; i < num_of_knots; i++)
+      {
+         x[i] += alpha * z[i];                     // xk = xk1 + a*zk1
+         r[i] -= alpha * ff[i];                    // rk = rk1 + a*Azk1
+      }
+      
+      solve_LLT(r, ff);                            // ff = M1 * rk
+
+      scal2 = scalar(ff, r, num_of_knots);         // (M1 * rk, rk)
+      beta = scal2 / scal1; //scal1;               // b = (M1 * rk, rk) / (M1 * rk1, rk1)
+
+      for (int i = 0; i < num_of_knots; i++)
+      {
+         z[i] = ff[i] + beta * z[i];               // zk = M1 * rk + b * zk1;
+      }
+
+      r_norm = sqrt(scalar(r, r, num_of_knots));   // |rk|
+
+      res = r_norm / b_norm;                       // res = |rk|/|b|
+      if (r_norm != r_norm)
+         cerr << "Error: NaN detected!" << endl;
+
+   }
+ #endif
+
+
    //std::cout << "Residual: " << res << std::endl;
 }
+
+void FEM::CreateKholessky()
+{
+   double sum_d, sum_l;
+   copy(A->d, M->d);
+   for (int i = 0; i < listsize + 1; i++)
+   {
+      M->l[i] = A->l[i];
+      M->u[i] = A->u[i];
+   }
+
+   for (int k = 0; k < num_of_knots; k++)
+   {
+      sum_d = 0;
+      int i_s = M->ig[k], i_e = M->ig[k + 1];
+   
+      for (int i = i_s; i < i_e; i++)
+      {
+         sum_l = 0;
+         int j_s = M->ig[M->jg[i]], j_e = M->ig[M->jg[i] + 1];
+         for (int m = i_s; m < i; m++)
+            for (int j = j_s; j < j_e; j++)
+               if (M->jg[m] == M->jg[j])
+               {
+                  sum_l += M->l[m] * M->l[j];
+                  j_s++;
+               }
+         M->l[i] = (M->l[i] - sum_l) / M->d[M->jg[i]];
+         sum_d += M->l[i] * M->l[i];
+      }
+      M->d[k] = sqrt(abs(M->d[k] - sum_d));
+   
+   }
+}
+
+void FEM::solve_L(real* f, real*& x) // Sx=f , x=S-1 * f
+{
+
+   for (int k = 1, k1 = 0; k <= num_of_knots; k++, k1++)
+   {
+      double sum = 0;
+
+      for (int i = A->ig[k1]; i < A->ig[k]; i++)
+         sum += M->l[i] * x[A->jg[i]];
+
+      x[k1] = (f[k1] - sum) / M->d[k1];
+   }
+
+}
+
+void FEM::solve_LT(real* f, real*& x) // Qx=f
+{
+
+   for (int k = num_of_knots, k1 = num_of_knots - 1; k > 0; k--, k1--)
+   {
+
+      x[k1] = f[k1] / M->d[k1];
+      double v_el = x[k1];
+
+      for (int i = A->ig[k1]; i < A->ig[k]; i++)
+         f[A->jg[i]] -= M->l[i] * v_el;
+   }
+}
+
+void FEM::solve_LLT(real* f, real*& x)
+{
+   solve_L(f, x);
+   solve_LT(x, x);
+}
+
+void FEM::WriteMatrix(Matrix* A)
+{
+   double** mat = new double* [num_of_knots] {};
+   for (int i = 0; i < num_of_knots; i++)
+   {
+      mat[i] = new double[num_of_knots] {};
+   }
+
+   for (int i = 0; i < num_of_knots; i++)
+   {
+      mat[i][i] = A->d[i];
+      for (int j = A->ig[i]; j < A->ig[i + 1]; j++)
+      {
+         mat[i][A->jg[j]] = A->l[j];
+         mat[A->jg[j]][i] = A->u[j];
+      }
+   }
+
+   ofstream out("matrix.txt");
+
+   for (int i = 0; i < num_of_knots; i++)
+   {
+      for (int j = 0; j < num_of_knots; j++)
+      {
+         out.setf(ios::left);
+         out.width(15);
+         out << mat[i][j];
+      }
+      out << "\n";
+   }
+}
+
