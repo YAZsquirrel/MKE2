@@ -42,14 +42,16 @@ public:
     vector<FE*> fes;        // Конечные элементы
     vector<Bound*> bounds;      // Границы
     vector<Material> materials; // Материалы
+    vector<real*> B_table;
     Grid();
 
 private:
+    
     int CreateXY();
     int ReadCountElements(int& countKnots, int& countFEs, int& countBounds, string pathFile);
     int ReadCoordinates(string pathFile);
     int ReadKEs(string pathFile);
     int ReadBounds(string pathFile);
-    int ReadMaterials(string pathFileJ, string pathFileMu);
+    int ReadMaterials(string pathFileJ, string pathFileMu, string pathFileMu001);
     int ReadFEs(string pathFileMaterial, string pathFileNumsKnots);
 };

@@ -12,7 +12,7 @@ class EMproblem
 	FEM *fem;
 
 	real* q;
-	real GetB2(Knot point);
+	std::function<real(Knot point)> GetB2;
 	real GetA(Knot point);
 	void Start();
 	void Output(std::ofstream& out);

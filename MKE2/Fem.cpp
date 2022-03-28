@@ -140,9 +140,62 @@ void FEM::copy(real* from, real* to)
 
 void FEM::SolveLinear()
 {
-   CreateSLAE();
+   CreateSLAE(true);
    SolveSLAE();
    WriteMatrix(M);
+}
+
+void FEM::SolveNonlinear(std::function<real(Knot point)> GetB2)
+{
+   SolveLinear(); // q0
+   real res = 1;
+   real b_norm = sqrt(scalar(b, b, num_of_knots));
+   real *Aqb = new real[num_of_knots];
+   real *temp = new real[num_of_knots];
+
+   //MatxVec(Aqb, M, q); // или A
+   //for (int i = 0; i < num_of_knots; i++)
+   //   Aqb[i] -= b[i];
+   //res = sqrt(scalar(Aqb, Aqb, num_of_knots));
+   int k = 1;
+   while(true)
+   {
+      MatxVec(Aqb, M, q); // или A
+      for (int i = 0; i < num_of_knots; i++)
+         Aqb[i] -= b[i];
+      res = sqrt(scalar(Aqb, Aqb, num_of_knots));
+         if (res < 1e-10) break;
+      copy(q, qprev);
+      k++;
+      real B2 = GetB2(Knot(1,2)); //////////////////////////////////////////
+
+      grid->materials[0].mu = GetMu(B2) * 4. * PI * 1e-7;
+      CreateSLAE(false);
+      SolveSLAE();
+      WriteMatrix(M);
+   }
+
+}
+
+real FEM::GetMu(real B2)
+{
+   int iB0 = B_table->size();  // 0 - mu = f, 1 - B = x
+   for (int i = 0; i < iB0; i++)
+      if (B2 < grid->B_table[i][1])
+      {
+         iB0 = i - 1; break;
+      }
+
+   real f0, f1;
+   real x0, x1;
+   if (iB0 == B_table->size())
+      return 1. / (grid->B_table[B_table->size() - 1][1] / B2 * (1. / grid->B_table[B_table->size() - 1][0] - 1.) + 1.); // 1/mu = Bn/B * (1/mun - 1) + 1
+
+   f0 = grid->B_table[iB0][0]; f1 = grid->B_table[iB0 + 1][0];
+   x0 = grid->B_table[iB0][1]; x1 = grid->B_table[iB0 + 1][1];
+
+   return f0 + (f1 - f0) * (x1 - x0) / (B2 - x0);
+
 }
 
 void FEM::Output(std::ofstream& out)
@@ -196,7 +249,7 @@ void FEM::AddFirstBounds()
    }
 }
 
-void FEM::CreateSLAE()
+void FEM::CreateSLAE(bool lin)
 {
    FE* fe;
    for (int i = 0; i < num_of_FE; i++)
@@ -205,7 +258,7 @@ void FEM::CreateSLAE()
       real localG[4][4];
       CreateLocalG(fe, localG);
       AddLocal(A, fe->knots_num, localG, 1);
-      AddToB(fe);
+      if (lin) AddToB(fe);
    }
 
    //for (int i = 0; i < num_of_knots; i++)

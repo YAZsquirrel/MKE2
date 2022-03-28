@@ -46,11 +46,13 @@
     <Text Include="matrix.txt">
       <Filter>Файлы ресурсов</Filter>
     </Text>
-    <Text Include="Point.txt">
-      <Filter>Файлы ресурсов</Filter>
-    </Text>
     <Text Include="ResAB.txt">
       <Filter>Файлы ресурсов</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Point">
+      <Filter>Файлы ресурсов</Filter>
+    </None>
   </ItemGroup>
 </Project>

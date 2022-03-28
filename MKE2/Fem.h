@@ -1,7 +1,8 @@
 #pragma once
 #include <list>
 #include "Grid.h"
-
+#include <functional>
+#define PI 3.14159265358979
 typedef double real;
 
 
@@ -10,7 +11,7 @@ class FEM
 
 public:
 	FEM();
-	void SolveNonlenear();
+	void SolveNonlinear(std::function<real(Knot point)>);
 	void SolveLinear();
 	void Output(std::ofstream& out);
 	int num_of_knots, num_of_FE, listsize;
@@ -26,26 +27,21 @@ private:
 		int* ig, * jg;
 	};
 
-
 	void MakeSparseFormat();  // Портрет
 
 	// Добавляет в матрицу А какие то штуки
 	void AddLocal(Matrix* A, long knot_num[4], real localA[4][4], real coeff);
-
-
 	void AddFirstBounds();
-
-	void CreateSLAE();
-
-
-
+	void CreateSLAE(bool lin);
 	void AddToB(FE* fe);
+	real GetMu(real B2);
 
+	vector<real>* B_table;
 	Matrix* A;
 	Matrix* M;
 	real* b, * temp;
 
-	real f(Knot* knot_); //= Jz
+	//real f(Knot* knot_); //= Jz
 	//real ug(Knot* knot_);
 
 	void WriteMatrix(Matrix* A);

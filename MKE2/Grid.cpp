@@ -5,8 +5,7 @@
 Grid::Grid()
 {
 	materials.resize(4);
-	if (ReadMaterials("toku", "mu")) exit(1);
-
+	if (ReadMaterials("toku", "mu", "mu.001")) exit(1);
 	int countKnots, countFEs, countBounds;
 	if (ReadCountElements(countKnots, countFEs, countBounds, "inf2tr.dat")) exit(2);
 	fes.resize(countFEs);
@@ -127,10 +126,11 @@ int Grid::ReadBounds(string pathFileBounds)
 
 }
 
-int Grid::ReadMaterials(string pathFileJ, string pathFileMu)
+int Grid::ReadMaterials(string pathFileJ, string pathFileMu, string pathFileMu001)
 {
 	ifstream inJ(pathFileJ);
 	ifstream inMu(pathFileMu);
+	ifstream inMu001(pathFileMu001);
 
 	if (inJ.is_open() || inMu.is_open())
 	{
@@ -142,6 +142,17 @@ int Grid::ReadMaterials(string pathFileJ, string pathFileMu)
 			inMu >> NumMaterial;
 			inMu >> materials[NumMaterial-1].mu;
 			materials[NumMaterial - 1].mu *= 4.0 * PI * 1e-7;
+
+		}
+		int size_mu;
+		inMu001 >> size_mu;
+		B_table.reserve(size_mu);
+		for (int i = 0; i < size_mu; i++)
+		{	
+			real mu, B;
+			inMu >> mu >> B;
+			real B_mu[2]{mu, B};
+			B_table.push_back(B_mu);
 		}
 	}
 	else
